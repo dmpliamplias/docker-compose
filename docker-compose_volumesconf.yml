@@ -1,0 +1,56 @@
+# Es wird eine docker-compose.properties Datei im gleichen Verzeichnis vorausgesetzt wie von ierp.yml.
+version: "2"
+
+# Top-level volumes options
+volumes:
+  appserver-logs:
+    driver_opts:
+      type: none
+      device: ${VOLUMES_ROOT}/appserver/logs
+      o: bind
+  datavolume:  
+
+# Define custom networks
+networks:
+  frontend:
+  service:
+  backend:
+  attachment:
+
+services:
+  database:
+    image: ${docker.pull.registry}/${docker.repository}/database:${erp.version}
+    volumes:
+      - ${VOLUMES_ROOT}/database/data:/data
+      - ${VOLUMES_ROOT}/database/logs:/logs
+    networks:
+      - backend
+    
+  esb:
+    image: ${docker.pull.registry}/${docker.repository}/esb:${erp.version}
+    volumes:
+      - ${VOLUMES_ROOT}/esb/logs:/opt/servicemix/data/log
+      - ${VOLUMES_ROOT}/esb/carddavsync:/carddavsync
+      - ${VOLUMES_ROOT}/esb/networkdevicetest:/networkdevice
+      - ${VOLUMES_ROOT}/esb/m2:/root/.m2
+    env_file:
+      - ./.env # properties: h2_password, SSH_GLENLIVET_PASSWORD
+    networks:
+      - backend
+    depends_on:
+      - attachments
+      - database
+        
+  appserver:
+    image: ${docker.pull.registry}/${docker.repository}/appserver:${erp.version}
+    volumes:
+      - ${VOLUMES_ROOT}/appserver/logs:/usr/local/tomcat/logs
+    env_file:
+      - ./.env # properties: H2_PASSWORD, INFOSERVICE_SERVERNAME
+    networks:
+      - service
+      - backend
+    depends_on:
+      - esb
+      - attachments
+      - database

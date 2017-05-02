@@ -34,15 +34,15 @@ services:
       - ${VOLUMES_ROOT}/database/logs:/logs
     networks:
       - backend
-	  
+      
   service:  
-  	networks:
-	  frontend:
-	    aliases:
-	      - alias1
-		  - alias2
-	    ipv4_address: 127.0.0.1
-		ipv6_address: 2001:3984:3989::10
-	    link_local_ips:
-	      - 127.0.1.1
-		  - 127.0.1.2
+    networks:
+      frontend:
+        aliases:
+          - alias1
+          - alias2
+        ipv4_address: 127.0.0.1
+        ipv6_address: 2001:3984:3989::10
+        link_local_ips:
+          - 127.0.1.1
+          - 127.0.1.2

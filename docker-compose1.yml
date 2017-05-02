@@ -1,0 +1,132 @@
+# Es wird eine docker-compose.properties Datei im gleichen Verzeichnis vorausgesetzt wie von ierp.yml.
+version: "2"
+
+# Define custom networks
+networks:
+  frontend:
+    driver: overlay
+    driver_opts:
+      foo: "bar"
+      baz: 1
+    labels:
+      - "com.pipapo=pipapo"
+      - "com.pipapo.pa=pipapo pa"
+  service:
+    driver: overlay
+    enable_ipv6: true
+  backend:
+    driver: bridge
+  attachment:
+    external: true
+    labels:
+      com.pipapo: "pipapo"
+      com.pipapo.pa: "pipapo pa"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+
+services:
+  database:
+    image: ${docker.pull.registry}/${docker.repository}/database:${erp.version}
+    volumes:
+      - ${VOLUMES_ROOT}/database/data:/data
+      - ${VOLUMES_ROOT}/database/logs:/logs
+    networks:
+      - backend
+
+  esb:
+    image: ${docker.pull.registry}/${docker.repository}/esb:${erp.version}
+    volumes:
+      - ${VOLUMES_ROOT}/esb/logs:/opt/servicemix/data/log
+      - ${VOLUMES_ROOT}/esb/carddavsync:/carddavsync
+      - ${VOLUMES_ROOT}/esb/networkdevicetest:/networkdevice
+      - ${VOLUMES_ROOT}/esb/m2:/root/.m2
+    env_file:
+      - ./.env # properties: h2_password, SSH_GLENLIVET_PASSWORD
+    networks:
+      - backend
+    depends_on:
+      - attachments
+      - database
+
+  appserver:
+    image: ${docker.pull.registry}/${docker.repository}/appserver:${erp.version}
+    volumes:
+      - ${VOLUMES_ROOT}/appserver/logs:/usr/local/tomcat/logs
+    env_file:
+      - ./.env # properties: H2_PASSWORD, INFOSERVICE_SERVERNAME
+    networks:
+      - service
+      - backend
+    depends_on:
+      - esb
+      - attachments
+      - database
+
+  logagent:
+    image: ${docker.pull.registry}/${docker.repository}/logagent:${erp.version}
+    env_file:
+      - ./.env #properties: LOGAGENT_PUBLISH_LOGS
+    volumes:
+      - ${VOLUMES_ROOT}/appserver/logs:/logagent/logs
+
+  rcpclient:
+    image: ${docker.pull.registry}/${docker.repository}/rcpclient:${erp.version}
+    env_file:
+      - ./.env # properties: WEBPROXY_HOST, WEBPROXY_PORT
+    networks:
+      - service
+
+  timesheetclient:
+    image: ${docker.pull.registry}/${docker.repository}/timesheetclient:${erp.version}
+    networks:
+      - service
+
+  mobiletimesheetclient:
+    image: ${docker.pull.registry}/${docker.repository}/mobiletimesheetclient:${erp.version}
+    networks:
+      - service
+
+  swaggerclient:
+    image: ${docker.pull.registry}/${docker.repository}/swaggerclient:${erp.version}
+    networks:
+      - service
+
+  webproxy:
+    image: ${docker.pull.registry}/${docker.repository}/webproxy:${erp.version}
+    ports:
+      - "${WEBPROXY_PORT}:443"
+    env_file:
+      - ./.env # properties: WEBPROXY_HOST, WEBPROXY_SSL_CERTIFICATE_FILE, WEBPROXY_SSL_KEY_FILE
+    volumes:
+      - ${VOLUMES_ROOT}/webproxy/certs:/etc/nginx/certs # set location of your ssl certificate file as volume
+    networks:
+      - frontend
+      - service
+    depends_on:
+      - mobiletimesheetclient
+      - timesheetclient
+      - swaggerclient
+      - appserver
+      - rcpclient
+
+  attachments:
+    image: docker-registry.inventage.com:10020/inventage/service/attachments:1.0.1.147
+    volumes:
+      - ${VOLUMES_ROOT}/attachments/data:/attachments
+      - ${VOLUMES_ROOT}/attachments/log:/var/log
+    env_file:
+      - ./.env # properties: ATTACHMENTS_LOG_LEVEL, ATTACHMENTS_LOG_DIR
+    networks:
+      - backend
+      - attachment
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: library/mongo:3
+    volumes:
+      - ${VOLUMES_ROOT}/mongodb/db:/data/db
+    networks:
+      - attachment

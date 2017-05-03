@@ -1,0 +1,34 @@
+version: "3"
+
+networks:
+  frontend:
+  backend:
+
+nginx:
+  ports:
+    - 80
+    - 443
+  volumes:
+    - /etc/nginx/nginx.conf
+  networks:
+    - frontend
+
+jira:
+  networks:
+    - frontend
+    - backend
+  volumes:
+    - /opt/jira-home
+
+confluence:
+  networks:
+    - frontend
+    - backend
+  volumes:
+    - /opt/confluence-home
+
+postgresql:
+  networks:
+    - backend
+  volumes:
+    - /bar/lib/postgresql/data:data
